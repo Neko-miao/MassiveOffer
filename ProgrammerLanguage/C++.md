@@ -4,6 +4,8 @@
 
 ### external  
 
+### explicit/implicit
+
 ## 引用
 ### 左值引用
 ### 右值引用
@@ -41,6 +43,8 @@
 - 理解：配合shared_ptr使用，可以从一个shared_ptr或者weak_ptr对象构造，但是它的构造和析构不会改变引用计数；
 - lock(); 获取一个shared_ptr对象，注意weak_ptr没有重载*和->运算符，因此不能直接访问引用对象；
 - expired(); weak_ptr中也会维护use_count，当weak_ptr托管对象时，返回false，否则返回true；
+
+## \#define
 
 
 
