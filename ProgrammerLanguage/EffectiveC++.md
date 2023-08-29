@@ -46,8 +46,62 @@ public:
 - 如果想拒绝编译器自动生成的代码，可将相应的成员函数声明为private并且不予实现，或者将基类的相应函数声明为private，在继承这个基类。  
 
 ### provision 07. Declare destructors virtual in polymorphic base classes. 
+- 为基类声明一个virtual析构函数，这样才能正确的在多态中释放掉派生类所占用的内存；  
+- 需要注意的是，如果class在设计上不需要virtual那就不要添加virtual关键字，因为virtual会让类维护一张vptr（virtual table pointer）表，增加内存占用；
+- 声明纯虚函数：
+```C++
+class AWOV{
+public:
+    virtual ~AWOV() = 0;
+}
 
+// 纯虚函数需要有个定义
+AWOV::~AWOC() { }
+```
 
+### provision 08. Prevent exceptions from leaving destructors  
+- 捕获析构时的异常或在析构异常时直接结束程序（std::abort()）； 
+- 如果在析构函数的某些操作可能会导致异常，最后将这些操作抽象出来定义为某个函数，并捕获该函数可能发生的异常行为，因为析构函数异常往往比普通函数异常的危害要大一些，原因在于普通函数异常捕获之后，用户有机会去补救； 
+
+### provision 09. Never call virtual functions during construction or destruction.  
+- 一定不要在构造函数或者析构函数中调用虚函数，因为派生类在构造前或析构后，其父类调用virtual函数时不会调用符合预期的函数；
+- 在派生类对象的基类构造期间，该派生类对象的类型其实是基类类型； 
+
+### provision 10. Have assignment operator return a reference to *this.  
+- 即：
+```C++
+public Widget{
+public:
+    // ...
+    Widget& operator=(const Widget& rhs){
+        // ...
+        return *this;
+    }
+}
+```
+- 只是建议，并不强制要求，不过最好这样做...  
+
+### provision 11. Handle assignment to self in operator=.  
+- 自定义的赋值操作在进行自我赋值时需要额外注重对象和资源的释放，如：
+```C++
+class Widget{
+public:
+    Bitmap* pb;
+    Widget& operator=(const Widget& rhs){
+        del pb;
+        pb = new Bitmap(rhs.pb);
+        return *this;
+    }
+}
+
+Widget w;
+w = w;  // 引发异常
+
+```
+- 处理方法是增加“证同测试”和“异常捕获”功能；
+
+### provision 12. Copy all parts of an object.  
+- 不要在opeator=中调用copy构造函数，反过来也不行；
 
 
 
