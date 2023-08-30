@@ -104,6 +104,67 @@ w = w;  // 引发异常
 - 不要在opeator=中调用copy构造函数，反过来也不行；
 
 
+## 资源管理  
+### provision 13. 以对象管理资源  
+- 回顾智能指针内容，用“罐装式”思维去管理对象资源；  
+- RAII(Resource Acquisition Is Initialization;)  资源获取的时机就是初始化时机；  
+- RCSP(reference-counting smart pointer)；
+
+### provision 14. 在资源管理类中小心coping行为  
+- 看如下代码:
+```C++
+class Lock{
+public:
+    Lock(Mutex *mp)mutexPtr(mp){
+        lock(mutePtr);
+    }
+    ~Lock(){
+        unlock(mutePtr);
+    }
+private:
+    Mutex *mutexPtr;
+}
+
+Mutex m;
+Lock l1(&m);
+Lock l2(l1); // 不合适
+```  
+- 解决解决上述代码问题可以从一下2点入手：  
+    - 禁止复制，如继承一个private修饰copy构造函数的基类；  
+    - 施行引用计数法来管理对象资源；  
+
+### provision 15. 在资源管理类中提供对原始资源的访问  
+- 资源访问时可以通过显示转换访问也可以通过隐式转换访问；
+- 有时为了访问方便，可以定义类的转换构造函数和类型转换函数；
+
+### provision 16. 成对使用new和delete时要采取相同形式  
+- 即new的时候如果有[]那么delete也要带[]，如果new没带[]那么delete也不需要delete；
+- 这点在typedef时尤为重要；  
+
+### provision 17. 以独立语句将newd对象置于智能指针
+- 看如下代码:
+```C++
+int priority();
+void processWidget(shared_ptr<Widget> wid, int priority);
+
+processWidget(shared_ptr<Widget>(new Widget), priority());
+```
+
+上述代码看似没有问题，在调用processWidet函数时，参数处理的过程可能如下：
+1. new Widget
+2. priority()
+3. shared_prt<Widget>()  
+
+不同于Java和C#，C++的编译器确实可能出现上述的情况。而如果编译器真的按照上述顺序初始化参数且priority()发生异常，new Widget的返回丢失，这部分内存就会泄露  
+
+因此用如下方式调用会更好一些：
+```C++
+shared_ptr<Widget> pw(new Widget);
+processWidget(pw, priority());
+```
+
+
+
 
 
 
