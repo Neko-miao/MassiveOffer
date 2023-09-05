@@ -163,6 +163,152 @@ shared_ptr<Widget> pw(new Widget);
 processWidget(pw, priority());
 ```
 
+## 设计于声明  
+### provision 18. 让接口容易被正确使用，不易被误用  
+- 接口设计应该易于理解，不易被误用。
+- 要做到易于理解可以：
+    - 保证接口的一致性，如用size表示大小，而不是length，count混用；
+    - 与内置类型行为兼容，如日期类型的operator+和int类型的operator+都可以达到用户预期；
+- 要做到不易误用，可以：
+    - 建立新类型，如用Month类型表示“月”而不是用int，用Day类型表示“天”而不是int；
+    - 限制类型上的操作，防止一些潜在的非法操作出现；
+    - 束缚对象值，如以下代码：
+    ```C++
+    class Month{
+    public:
+        static Month Jan() {return Month(1);}
+        static Month Feb() {return Month(2);}
+        //...
+    private:
+        explicit Month(int m);
+    }
+    ```
+    注意，上述代码使用函数Jan()而不是变量Jan来表示一月，这是为了局部静态对象的正确初始化；
+    - 消除用户的资源管理责任，如shared_ptr，用户不需要担心指针删除问题；而且shared_ptr有专属的删除器，不会出现在DLL1中new出的对象，在DLL2中delete(cross-DLL problem)；shared_ptr有额外的内存成本和多线程同步化开销，但是却能有效降低bug数量；
+
+
+### provision 19. 设计class犹如设计type  
+设计class时谨慎考虑以下问题：
+- class的对象何时创建？何时销毁？
+- 对象初始化和对象赋值有什么差别？
+- 对象被passed by value如何处理？(拷贝构造函数实现)
+- class的合法取值在什么范围？
+- class需要配合哪个继承图系？
+- class需要什么样的转换？（显式转换和隐式转换规范）
+- 什么样的操作符和函数对class是合法的？  
+- 什么样的标准函数应该被驳回？（即哪些应该是private函数）
+- 谁该取用新class的成员？
+- 什么是新class的“未声明接口”？
+- 新class的抽象程度如何？
+- 是否真的需要一个新class？
+
+### provision 20. 传引用替代传值  
+- 值传参的缺点：
+    - 增加了额外的构造和析构成本
+    - 造成对象割裂，即一个derived对象传值给一个based对象，因为值传参的缘故，该对象在函数内部的行为完全是一个based class的行为，而割裂了derived class部分的特性
+
+### provision 21. 必须返回对象时，别妄想返回其reference
+- 如果函数返回值声明为reference或指针，而返回结果确实一个local stack
+对象或者heap-allocated对象或者local staic对象，这一定时非常糟糕的代码；
+
+### provision 22. 成员变量声明为private  
+- class的成员变量声明为private，用成员函数提供访问方式，这样更能类的封装性，也赋予客户访问数据的一致性、细粒度访问控制、约束条件获得保证，class的实现也会更具弹性；
+- protected并不比public更具封装性，因为要永远假设对外暴露的变量一定会被修改；
+
+### provision 23. 宁以non-member、non-friend替换member函数  
+- 简单来说，就是用工具类（utility）来为类提供便利的接口，这样增加了封装弹性，同时减少了编译依赖；
+
+### provision 24. 若所有参数皆需类型转换，请为此采用non-member函数
+- 举个例子，对于有理数类（Rational）的operator*运算，采用non-member的方式才能实现所有参数（包括被this指针所指的那个隐喻参数）都要转换为Rational类的情况；
+
+### provision 25. 考虑写出一个不抛异常的swap函数
+- 最一般化的版本：
+```C++
+template<typename T>
+void swap(T& a, T& b){
+    T tmp(a);
+    a = b;
+    b = tmp;
+}
+// 代码中需要的copy构造函数和operator=操作都有缺省版本，因此不需要额外的工作  
+```
+- 但如果class包含一个指针，而这个指针指向的正是真正的数据，这样在最一般化的swap版本中，就拜拜浪费了copy和operator=的成本，因为真正需要交换的只是两个指针的值而已：
+```C++
+class MyClass{
+public:
+    MyClass(const MyClass& rhs);
+    Widget& operator=(const MyClass& rhs){
+        //...
+    }
+private:
+    int* data;
+}
+
+namespace std{
+    template<>
+    void swap<Widget>(Widget& a, Widget& b){
+        swap(a.data, b.data);  // 只需要换指针，注意data不能直接访问
+    }
+}
+```
+以上是swap的一个全特化版本，放在std命名空间下，为了能访问到被声明为private的data指针，可以修改上述代码为以下版本，这个版本可以保持STL的一致性：
+```C++
+class MyClass{
+public:
+    void swap(MyClass& other){
+        using std::swap;
+        swap(data, other.data)
+    }
+private:
+    int* data;
+}
+
+namespace std{
+    template<>
+    void swap<MyClass>(MyClass& a, MyClass& b){
+        a.swap(b);
+    }
+}
+```
+
+- 如果MyClass本身是一个template class，那以下操作其实是不合法的
+```C++
+namespace std{
+    template<typename T>
+    swap<MyClass<T>>(MyClass<T>& a, MyClass<T>& b){ // error!
+        a.swap(b);
+    }
+}
+```
+这是因为，偏特化一个function template是不允许的，只能对class template进行偏特化；
+
+- 如果要偏特化一个function template，一般是添加一个重载版本
+```C++
+namespace std{
+    template<typename T>
+    void swap(MyClass<T>& a, MyClass<T>& b){
+        a.swap(b);
+    }
+    // 注意swap之后没有<>
+}
+```
+上述代码也不合法，这是因为std命名空间下，不允许添加新的模板（包括模板函数、模板类或其他任何东西），所以需要换一个命名空间
+```C++
+namespace MyClassStuff{
+    template<typename T>
+    void swap(MyClass<T>& a, MyClass<T>& b){
+        a.swap(b);
+    }
+}
+```
+
+
+
+
+
+
+
+
 
 
 
