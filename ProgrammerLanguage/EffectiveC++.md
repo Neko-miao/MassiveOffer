@@ -302,6 +302,27 @@ namespace MyClassStuff{
 }
 ```
 
+## 实现
+### provision 26. 尽可能延后变量定义式出现的时间  
+- 即对象最好做到定义就使用，尽可能减少构造和析构成本；
+- 先定义在赋值的成本高于直接通过构造函数定义：
+```C++
+string s1;
+s1 = "string";
+
+string s2("string") // 效率更高
+```
+
+### provision 27. 尽可能少做转型动作  
+- C++的四种转型方式：
+    - const_cast<T>: 常量转除，即将const转为非const
+    - dynamic_cast<T>: 安全向下转型，效率差，因为很可能要进行许多class名字的strcmp操作
+    - reinterpret_cast<T>: 低级转型，如pointer to int转型为int，可移植性差，不同编译器实现不同
+    - static_cast<T>: 强迫隐式转换，如将non-const转换为const，或int转double，但是无法将const转non-const
+
+### provision 28. 避免返回handles指向对象内部成分  
+
+
 
 
 
